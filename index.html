@@ -286,17 +286,71 @@
     </div>
 
     <script>
+        // Decode base64 string
+        function decodeBase64(str) {
+            if (!str) return '';
+            try {
+                return decodeURIComponent(escape(atob(str)));
+            } catch (e) {
+                // If base64 decode fails, return original string
+                return str;
+            }
+        }
+
+        // Get parameter value, supporting both base64 and regular encoding
+        function getParam(params, key, useBase64 = false) {
+            if (useBase64) {
+                const base64Value = params.get(`${key}_b64`);
+                if (base64Value) {
+                    return decodeBase64(base64Value);
+                }
+            }
+            return params.get(key) || '';
+        }
+
+        // Get all parameter values, supporting both base64 and regular encoding
+        function getAllParams(params, key, useBase64 = false) {
+            if (useBase64) {
+                const base64Values = params.getAll(`${key}_b64`);
+                if (base64Values.length > 0) {
+                    return base64Values.map(v => decodeBase64(v));
+                }
+            }
+            return params.getAll(key);
+        }
+
         // Parse URL parameters
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
             
+            // Check if using single base64 JSON parameter
+            const dataB64 = params.get('data_b64');
+            if (dataB64) {
+                try {
+                    const decoded = decodeBase64(dataB64);
+                    const quizData = JSON.parse(decoded);
+                    return {
+                        title: quizData.title || '',
+                        description: quizData.description || '',
+                        questions: quizData.questions || [],
+                        answers: quizData.answers || [],
+                        questionData: quizData.questionData || null
+                    };
+                } catch (e) {
+                    console.error('Failed to parse data_b64:', e);
+                }
+            }
+            
+            // Check if using base64 encoding (look for any _b64 parameter)
+            const useBase64 = Array.from(params.keys()).some(key => key.endsWith('_b64'));
+            
             // Get title and description
-            const title = params.get('title') || '';
-            const description = params.get('description') || '';
+            const title = getParam(params, 'title', useBase64);
+            const description = getParam(params, 'description', useBase64);
             
             // Support legacy format: question/answer
-            const legacyQuestions = params.getAll('question');
-            const legacyAnswers = params.getAll('answer');
+            const legacyQuestions = getAllParams(params, 'question', useBase64);
+            const legacyAnswers = getAllParams(params, 'answer', useBase64);
             
             // Support new format: question1, question2, etc. with options
             const questions = [];
@@ -304,19 +358,19 @@
             
             // Parse numbered questions (question1, question2, etc.)
             let qIndex = 1;
-            while (params.has(`question${qIndex}`)) {
-                const questionText = params.get(`question${qIndex}`);
+            while (params.has(`question${qIndex}`) || params.has(`question${qIndex}_b64`)) {
+                const questionText = getParam(params, `question${qIndex}`, useBase64);
                 const options = [];
                 let optIndex = 1;
                 
                 // Get options for this question (q1_option1, q1_option2, etc.)
-                while (params.has(`q${qIndex}_option${optIndex}`)) {
-                    options.push(params.get(`q${qIndex}_option${optIndex}`));
+                while (params.has(`q${qIndex}_option${optIndex}`) || params.has(`q${qIndex}_option${optIndex}_b64`)) {
+                    options.push(getParam(params, `q${qIndex}_option${optIndex}`, useBase64));
                     optIndex++;
                 }
                 
                 // Get answer (q1_answer) - can be option text or option number (1-indexed)
-                const answer = params.get(`q${qIndex}_answer`) || '';
+                const answer = getParam(params, `q${qIndex}_answer`, useBase64);
                 
                 questionData.push({
                     question: questionText,
@@ -348,7 +402,7 @@
             };
         }
 
-        // Decode URL-encoded strings
+        // Decode URL-encoded strings (for backward compatibility)
         function decodeParam(param) {
             if (!param) return '';
             return decodeURIComponent(param.replace(/\+/g, ' '));
@@ -406,9 +460,19 @@
                         <h2>No Quiz Found</h2>
                         <p>Please provide quiz questions and answers via URL parameters.</p>
                         
-                        <p><strong>Format with Title, Description, and Multiple Choice:</strong></p>
+                        <p><strong>Base64 Format (Recommended - Single JSON Parameter):</strong></p>
                         <div class="example-url">
-                            ?title=Math Quiz&description=Test your math skills&question1=What is 2+2?&q1_option1=3&q1_option2=4&q1_option3=5&q1_answer=4&question2=What is 3*3?&q2_option1=6&q2_option2=9&q2_option3=12&q2_answer=9
+                            ?data_b64=eyJ0aXRsZSI6Ik1hdGggUXVpeiIsImRlc2NyaXB0aW9uIjoiVGVzdCB5b3VyIG1hdGggc2tpbGxzIiwicXVlc3Rpb25EYXRhIjpbeyJxdWVzdGlvbiI6IldoYXQgaXMgMis0PyIsIm9wdGlvbnMiOlsiMyIsIjQiLCI1Il0sImFuc3dlciI6IjQifSx7InF1ZXN0aW9uIjoiV2hhdCBpcyAzKjM/Iiwib3B0aW9ucyI6WyI2IiwiOSIsIjEyIl0sImFuc3dlciI6IjkifV19
+                        </div>
+                        
+                        <p><strong>Base64 Format (Individual Parameters with _b64 suffix):</strong></p>
+                        <div class="example-url">
+                            ?title_b64=Math%20Quiz&description_b64=Test%20your%20math%20skills&question1_b64=What%20is%202%2B2%3F&q1_option1_b64=3&q1_option2_b64=4&q1_option3_b64=5&q1_answer_b64=4
+                        </div>
+                        
+                        <p><strong>Regular Format (URL Encoded):</strong></p>
+                        <div class="example-url">
+                            ?title=Math Quiz&description=Test your math skills&question1=What is 2+2?&q1_option1=3&q1_option2=4&q1_option3=5&q1_answer=4
                         </div>
                         
                         <p><strong>Legacy Format (Simple Q&A):</strong></p>
@@ -416,12 +480,7 @@
                             ?question=What is 2+2?&answer=4
                         </div>
                         
-                        <p><strong>Multiple Questions (Legacy):</strong></p>
-                        <div class="example-url">
-                            ?question=What is 2+2?&answer=4&question=What is the capital of France?&answer=Paris
-                        </div>
-                        
-                        <p><strong>Note:</strong> Use <code>encodeURIComponent()</code> to encode special characters in your URLs.</p>
+                        <p><strong>Note:</strong> Base64 encoding is recommended for cleaner URLs. Use <code>btoa()</code> in JavaScript to encode, or <code>encodeURIComponent()</code> for regular encoding.</p>
                         <p><strong>Answer Format:</strong> For multiple choice, <code>q1_answer</code> can be the option text or option number (1, 2, 3, etc.).</p>
                     </div>
                 `;

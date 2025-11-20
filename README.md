@@ -7,6 +7,7 @@ A simple, beautiful static page for displaying quiz questions and answers from U
 - 📱 Responsive design that works on all devices
 - 🎨 Modern, clean UI with smooth animations
 - 🔗 Reads questions and answers from URL parameters
+- 🔐 Base64 encoding support for cleaner URLs
 - 👁️ Toggle answers on/off individually or all at once
 - 📝 Supports single or multiple questions
 - 🎯 Multiple choice questions with options
@@ -15,18 +16,65 @@ A simple, beautiful static page for displaying quiz questions and answers from U
 
 ## Usage
 
-### Format with Title, Description, and Multiple Choice Questions
+### Base64 Encoding (Recommended)
+
+Base64 encoding produces cleaner URLs and handles special characters better. Two methods are supported:
+
+#### Method 1: Single JSON Parameter (Recommended)
+
+Encode your entire quiz as a single base64 JSON parameter:
+
+```javascript
+const quizData = {
+    title: "Math Quiz",
+    description: "Test your basic math skills",
+    questionData: [
+        {
+            question: "What is 2+2?",
+            options: ["3", "4", "5"],
+            answer: "4"
+        },
+        {
+            question: "What is 3*3?",
+            options: ["6", "9", "12"],
+            answer: "9"
+        }
+    ]
+};
+
+const jsonString = JSON.stringify(quizData);
+const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+const url = `https://yourusername.github.io/open-quiz/?data_b64=${base64}`;
+```
+
+#### Method 2: Individual Base64 Parameters
+
+Use `_b64` suffix for each parameter:
+
+```javascript
+const params = new URLSearchParams();
+params.append('title_b64', btoa(unescape(encodeURIComponent('Math Quiz'))));
+params.append('question1_b64', btoa(unescape(encodeURIComponent('What is 2+2?'))));
+params.append('q1_option1_b64', btoa(unescape(encodeURIComponent('3'))));
+params.append('q1_option2_b64', btoa(unescape(encodeURIComponent('4'))));
+params.append('q1_answer_b64', btoa(unescape(encodeURIComponent('4'))));
+const url = `https://yourusername.github.io/open-quiz/?${params.toString()}`;
+```
+
+### Regular URL Encoding
+
+For simple cases, you can use regular URL encoding:
 
 ```
 ?title=Math Quiz&description=Test your math skills&question1=What is 2+2?&q1_option1=3&q1_option2=4&q1_option3=5&q1_answer=4&question2=What is 3*3?&q2_option1=6&q2_option2=9&q2_option3=12&q2_answer=9
 ```
 
 **Parameter Structure:**
-- `title` - Quiz title (optional)
-- `description` - Quiz description (optional)
-- `question1`, `question2`, etc. - Question text
-- `q1_option1`, `q1_option2`, etc. - Options for question 1
-- `q1_answer` - Correct answer (can be option text or option number: 1, 2, 3, etc.)
+- `title` or `title_b64` - Quiz title (optional)
+- `description` or `description_b64` - Quiz description (optional)
+- `question1`, `question2`, etc. or `question1_b64`, `question2_b64`, etc. - Question text
+- `q1_option1`, `q1_option2`, etc. or `q1_option1_b64`, `q1_option2_b64`, etc. - Options for question 1
+- `q1_answer` or `q1_answer_b64` - Correct answer (can be option text or option number: 1, 2, 3, etc.)
 
 ### Legacy Format: Simple Q&A
 
@@ -40,21 +88,15 @@ A simple, beautiful static page for displaying quiz questions and answers from U
 ?question=What is 2+2?&answer=4&question=What is the capital of France?&answer=Paris
 ```
 
-### URL Encoding
+### Helper Script
 
-For questions or answers with special characters, use `encodeURIComponent()`:
+Use the included `generate-url.js` script to generate base64-encoded URLs:
 
-**JavaScript Example:**
-```javascript
-const question = "What is 2+2?";
-const answer = "4";
-const url = `https://yourusername.github.io/open-quiz/?question=${encodeURIComponent(question)}&answer=${encodeURIComponent(answer)}`;
+```bash
+node generate-url.js
 ```
 
-**Example URL:**
-```
-https://yourusername.github.io/open-quiz/?question=What%20is%202%2B2%3F&answer=4
-```
+This will output example URLs using all three encoding methods.
 
 ## Deployment to GitHub Pages
 
@@ -114,8 +156,9 @@ https://yourusername.github.io/open-quiz/?question=What%20is%202%2B2%3F&answer=4
 
 ```
 open-quiz/
-├── index.html    # Main quiz display page
-└── README.md     # This file
+├── index.html        # Main quiz display page
+├── generate-url.js   # Helper script to generate base64 URLs
+└── README.md         # This file
 ```
 
 ## Browser Support
