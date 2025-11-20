@@ -241,6 +241,20 @@
             margin-right: 8px;
         }
 
+        .option-item.correct.hidden {
+            background: #fff;
+            border-color: #e0e0e0;
+            font-weight: normal;
+        }
+
+        .option-item.correct.hidden::before {
+            content: "";
+        }
+
+        .option-item.correct.hidden .option-label {
+            background: #667eea;
+        }
+
         .option-label {
             display: inline-block;
             width: 30px;
@@ -268,7 +282,6 @@
 </head>
 <body>
     <div class="container">
-        <h1>📚 Quiz Display</h1>
         <div id="quiz-container"></div>
     </div>
 
@@ -346,6 +359,12 @@
             const answerElement = document.getElementById(`answer-${index}`);
             if (answerElement) {
                 answerElement.classList.toggle('show');
+                // Also toggle correct option highlighting for this question
+                const questionItem = answerElement.closest('.question-item');
+                if (questionItem) {
+                    const correctOptions = questionItem.querySelectorAll('.option-item.correct');
+                    correctOptions.forEach(option => option.classList.toggle('hidden'));
+                }
             }
         }
 
@@ -353,12 +372,22 @@
         function showAllAnswers() {
             const answers = document.querySelectorAll('.answer');
             answers.forEach(answer => answer.classList.add('show'));
+            // Also show correct option highlighting
+            const correctOptions = document.querySelectorAll('.option-item.correct.hidden');
+            correctOptions.forEach(option => option.classList.remove('hidden'));
         }
 
         // Hide all answers
         function hideAllAnswers() {
             const answers = document.querySelectorAll('.answer');
             answers.forEach(answer => answer.classList.remove('show'));
+            // Also hide correct option highlighting
+            const correctOptions = document.querySelectorAll('.option-item.correct');
+            correctOptions.forEach(option => {
+                if (!option.classList.contains('hidden')) {
+                    option.classList.add('hidden');
+                }
+            });
         }
 
         // Render quiz content
@@ -443,7 +472,7 @@
                                         ${options.map((option, optIndex) => {
                                             const isCorrect = optIndex === correctIndex;
                                             return `
-                                                <li class="option-item ${isCorrect ? 'correct' : ''}" id="q${index + 1}_opt${optIndex + 1}">
+                                                <li class="option-item ${isCorrect ? 'correct hidden' : ''}" id="q${index + 1}_opt${optIndex + 1}">
                                                     <span class="option-label">${String.fromCharCode(65 + optIndex)}</span>
                                                     <span class="option-text">${option}</span>
                                                 </li>
