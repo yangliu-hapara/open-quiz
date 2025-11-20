@@ -49,6 +49,23 @@
             font-size: 2.5em;
         }
 
+        .quiz-title {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 2.2em;
+            font-weight: 700;
+        }
+
+        .quiz-description {
+            color: #666;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.1em;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+
         .quiz-section {
             margin-bottom: 30px;
         }
@@ -189,6 +206,64 @@
         .question-item {
             margin-bottom: 30px;
         }
+
+        .options-list {
+            margin-top: 20px;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .option-item {
+            background: #fff;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+
+        .option-item:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .option-item.correct {
+            background: #e8f5e9;
+            border-color: #4caf50;
+            font-weight: 600;
+        }
+
+        .option-item.correct::before {
+            content: "✓ ";
+            color: #4caf50;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .option-label {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            font-weight: 600;
+            margin-right: 12px;
+            font-size: 0.9em;
+        }
+
+        .option-item.correct .option-label {
+            background: #4caf50;
+        }
+
+        .option-text {
+            display: inline-block;
+            vertical-align: middle;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -201,18 +276,63 @@
         // Parse URL parameters
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
-            const questions = params.getAll('question');
-            const answers = params.getAll('answer');
             
-            // Also support single question/answer
-            if (questions.length === 0 && params.has('question')) {
-                questions.push(params.get('question'));
-            }
-            if (answers.length === 0 && params.has('answer')) {
-                answers.push(params.get('answer'));
+            // Get title and description
+            const title = params.get('title') || '';
+            const description = params.get('description') || '';
+            
+            // Support legacy format: question/answer
+            const legacyQuestions = params.getAll('question');
+            const legacyAnswers = params.getAll('answer');
+            
+            // Support new format: question1, question2, etc. with options
+            const questions = [];
+            const questionData = [];
+            
+            // Parse numbered questions (question1, question2, etc.)
+            let qIndex = 1;
+            while (params.has(`question${qIndex}`)) {
+                const questionText = params.get(`question${qIndex}`);
+                const options = [];
+                let optIndex = 1;
+                
+                // Get options for this question (q1_option1, q1_option2, etc.)
+                while (params.has(`q${qIndex}_option${optIndex}`)) {
+                    options.push(params.get(`q${qIndex}_option${optIndex}`));
+                    optIndex++;
+                }
+                
+                // Get answer (q1_answer) - can be option text or option number (1-indexed)
+                const answer = params.get(`q${qIndex}_answer`) || '';
+                
+                questionData.push({
+                    question: questionText,
+                    options: options,
+                    answer: answer
+                });
+                
+                questions.push(questionText);
+                qIndex++;
             }
             
-            return { questions, answers };
+            // Fallback to legacy format if no numbered questions found
+            if (questions.length === 0 && legacyQuestions.length > 0) {
+                return {
+                    title,
+                    description,
+                    questions: legacyQuestions,
+                    answers: legacyAnswers,
+                    questionData: null // Legacy format
+                };
+            }
+            
+            return {
+                title,
+                description,
+                questions,
+                answers: questionData.map(q => q.answer),
+                questionData: questionData.length > 0 ? questionData : null
+            };
         }
 
         // Decode URL-encoded strings
@@ -244,22 +364,36 @@
         // Render quiz content
         function renderQuiz() {
             const container = document.getElementById('quiz-container');
-            const { questions, answers } = getUrlParams();
+            const { title, description, questions, answers, questionData } = getUrlParams();
+            
+            // Update page title if quiz title is provided
+            if (title) {
+                document.title = decodeParam(title) + ' - Quiz Display';
+            }
 
             if (questions.length === 0) {
                 container.innerHTML = `
                     <div class="no-quiz">
                         <h2>No Quiz Found</h2>
                         <p>Please provide quiz questions and answers via URL parameters.</p>
-                        <p><strong>Single Question Format:</strong></p>
+                        
+                        <p><strong>Format with Title, Description, and Multiple Choice:</strong></p>
+                        <div class="example-url">
+                            ?title=Math Quiz&description=Test your math skills&question1=What is 2+2?&q1_option1=3&q1_option2=4&q1_option3=5&q1_answer=4&question2=What is 3*3?&q2_option1=6&q2_option2=9&q2_option3=12&q2_answer=9
+                        </div>
+                        
+                        <p><strong>Legacy Format (Simple Q&A):</strong></p>
                         <div class="example-url">
                             ?question=What is 2+2?&answer=4
                         </div>
-                        <p><strong>Multiple Questions Format:</strong></p>
+                        
+                        <p><strong>Multiple Questions (Legacy):</strong></p>
                         <div class="example-url">
                             ?question=What is 2+2?&answer=4&question=What is the capital of France?&answer=Paris
                         </div>
+                        
                         <p><strong>Note:</strong> Use <code>encodeURIComponent()</code> to encode special characters in your URLs.</p>
+                        <p><strong>Answer Format:</strong> For multiple choice, <code>q1_answer</code> can be the option text or option number (1, 2, 3, etc.).</p>
                     </div>
                 `;
                 return;
@@ -267,42 +401,104 @@
 
             let html = '';
             
-            if (questions.length === 1) {
-                // Single question format
-                html = `
-                    <div class="quiz-section">
-                        <div class="question">
-                            <div class="question-label">Question</div>
-                            <div class="question-text">${decodeParam(questions[0])}</div>
-                        </div>
-                        ${answers[0] ? `
-                            <div class="answer" id="answer-0">
-                                <div class="answer-label">Answer</div>
-                                <div class="answer-text">${decodeParam(answers[0])}</div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            } else {
-                // Multiple questions format
-                html = '<div class="multiple-questions">';
-                questions.forEach((question, index) => {
+            // Add title if provided
+            if (title) {
+                html += `<h1 class="quiz-title">${decodeParam(title)}</h1>`;
+            }
+            
+            // Add description if provided
+            if (description) {
+                html += `<div class="quiz-description">${decodeParam(description)}</div>`;
+            }
+            
+            // Render questions with options (new format)
+            if (questionData && questionData.length > 0) {
+                html += '<div class="multiple-questions">';
+                questionData.forEach((qData, index) => {
+                    const questionText = decodeParam(qData.question);
+                    const options = qData.options.map(opt => decodeParam(opt));
+                    const answer = decodeParam(qData.answer);
+                    
+                    // Determine correct answer index
+                    let correctIndex = -1;
+                    // Try to match by text first
+                    const answerTextMatch = options.findIndex(opt => opt.toLowerCase() === answer.toLowerCase());
+                    if (answerTextMatch !== -1) {
+                        correctIndex = answerTextMatch;
+                    } else {
+                        // Try to match by number (1-indexed)
+                        const answerNum = parseInt(answer);
+                        if (!isNaN(answerNum) && answerNum >= 1 && answerNum <= options.length) {
+                            correctIndex = answerNum - 1;
+                        }
+                    }
+                    
                     html += `
                         <div class="question-item">
                             <div class="question">
                                 <div class="question-label">Question ${index + 1}</div>
-                                <div class="question-text">${decodeParam(question)}</div>
+                                <div class="question-text">${questionText}</div>
+                                ${options.length > 0 ? `
+                                    <ul class="options-list">
+                                        ${options.map((option, optIndex) => {
+                                            const isCorrect = optIndex === correctIndex;
+                                            return `
+                                                <li class="option-item ${isCorrect ? 'correct' : ''}" id="q${index + 1}_opt${optIndex + 1}">
+                                                    <span class="option-label">${String.fromCharCode(65 + optIndex)}</span>
+                                                    <span class="option-text">${option}</span>
+                                                </li>
+                                            `;
+                                        }).join('')}
+                                    </ul>
+                                ` : ''}
                             </div>
-                            ${answers[index] ? `
+                            ${answer ? `
                                 <div class="answer" id="answer-${index}">
-                                    <div class="answer-label">Answer ${index + 1}</div>
-                                    <div class="answer-text">${decodeParam(answers[index])}</div>
+                                    <div class="answer-label">Correct Answer</div>
+                                    <div class="answer-text">${answer}</div>
                                 </div>
                             ` : ''}
                         </div>
                     `;
                 });
                 html += '</div>';
+            } else {
+                // Legacy format: simple questions and answers
+                if (questions.length === 1) {
+                    html += `
+                        <div class="quiz-section">
+                            <div class="question">
+                                <div class="question-label">Question</div>
+                                <div class="question-text">${decodeParam(questions[0])}</div>
+                            </div>
+                            ${answers[0] ? `
+                                <div class="answer" id="answer-0">
+                                    <div class="answer-label">Answer</div>
+                                    <div class="answer-text">${decodeParam(answers[0])}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    html += '<div class="multiple-questions">';
+                    questions.forEach((question, index) => {
+                        html += `
+                            <div class="question-item">
+                                <div class="question">
+                                    <div class="question-label">Question ${index + 1}</div>
+                                    <div class="question-text">${decodeParam(question)}</div>
+                                </div>
+                                ${answers[index] ? `
+                                    <div class="answer" id="answer-${index}">
+                                        <div class="answer-label">Answer ${index + 1}</div>
+                                        <div class="answer-text">${decodeParam(answers[index])}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                }
             }
 
             // Add control buttons if there are answers
