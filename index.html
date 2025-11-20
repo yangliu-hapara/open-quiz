@@ -220,12 +220,31 @@
             border-radius: 8px;
             border: 2px solid #e0e0e0;
             transition: all 0.2s ease;
-            cursor: default;
+            cursor: pointer;
+            user-select: none;
         }
 
         .option-item:hover {
             border-color: #667eea;
             background: #f8f9ff;
+        }
+
+        .option-item.selected {
+            border-color: #667eea;
+            background: #e8eaf6;
+            border-width: 3px;
+        }
+
+        .option-item.incorrect {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+
+        .option-item.incorrect::before {
+            content: "✗ ";
+            color: #f44336;
+            font-weight: bold;
+            margin-right: 8px;
         }
 
         .option-item.correct {
@@ -273,10 +292,86 @@
             background: #4caf50;
         }
 
+        .option-item.incorrect .option-label {
+            background: #f44336;
+        }
+
         .option-text {
             display: inline-block;
             vertical-align: middle;
             color: #333;
+        }
+
+        .result-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-top: 30px;
+            text-align: center;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .result-title {
+            font-size: 2em;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .result-score {
+            font-size: 3em;
+            margin: 20px 0;
+            font-weight: 700;
+        }
+
+        .result-percentage {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .result-message {
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+
+        .submit-button {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            margin-top: 20px;
+            display: none;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        }
+
+        .submit-button:active {
+            transform: translateY(0);
+        }
+
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .submit-button.show {
+            display: inline-block;
         }
     </style>
 </head>
@@ -408,40 +503,216 @@
             return decodeURIComponent(param.replace(/\+/g, ' '));
         }
 
-        // Toggle answer visibility
-        function toggleAnswer(index) {
-            const answerElement = document.getElementById(`answer-${index}`);
-            if (answerElement) {
-                answerElement.classList.toggle('show');
-                // Also toggle correct option highlighting for this question
-                const questionItem = answerElement.closest('.question-item');
-                if (questionItem) {
-                    const correctOptions = questionItem.querySelectorAll('.option-item.correct');
-                    correctOptions.forEach(option => option.classList.toggle('hidden'));
+        // User selections storage
+        let userSelections = {};
+        let quizCompleted = false;
+        let questionDataArray = [];
+
+        // Select an option for a question
+        function selectOption(questionIndex, optionIndex) {
+            if (quizCompleted) return; // Don't allow changes after completion
+            
+            // Remove previous selection for this question
+            const questionItem = document.querySelector(`.question-item[data-q-index="${questionIndex}"]`);
+            if (questionItem) {
+                const previousSelected = questionItem.querySelector('.option-item.selected');
+                if (previousSelected) {
+                    previousSelected.classList.remove('selected');
                 }
+                
+                // Mark the clicked option as selected
+                const option = questionItem.querySelector(`.option-item[data-opt-index="${optionIndex}"]`);
+                if (option) {
+                    option.classList.add('selected');
+                    userSelections[questionIndex] = optionIndex;
+                }
+            }
+            
+            // Check if all questions are answered and show submit button
+            checkAllAnswered();
+        }
+
+        // Check if all questions are answered
+        function checkAllAnswered() {
+            if (quizCompleted) return;
+            
+            const totalQuestions = questionDataArray.length;
+            const answeredCount = Object.keys(userSelections).length;
+            
+            const submitButton = document.getElementById('submit-quiz');
+            if (submitButton && answeredCount === totalQuestions && totalQuestions > 0) {
+                submitButton.classList.add('show');
+                submitButton.disabled = false;
+            } else if (submitButton) {
+                submitButton.classList.remove('show');
+                submitButton.disabled = true;
             }
         }
 
-        // Show all answers
-        function showAllAnswers() {
-            const answers = document.querySelectorAll('.answer');
-            answers.forEach(answer => answer.classList.add('show'));
-            // Also show correct option highlighting
-            const correctOptions = document.querySelectorAll('.option-item.correct.hidden');
-            correctOptions.forEach(option => option.classList.remove('hidden'));
-        }
-
-        // Hide all answers
-        function hideAllAnswers() {
-            const answers = document.querySelectorAll('.answer');
-            answers.forEach(answer => answer.classList.remove('show'));
-            // Also hide correct option highlighting
-            const correctOptions = document.querySelectorAll('.option-item.correct');
-            correctOptions.forEach(option => {
-                if (!option.classList.contains('hidden')) {
-                    option.classList.add('hidden');
+        // Submit quiz and show results
+        function submitQuiz() {
+            if (quizCompleted) return;
+            
+            quizCompleted = true;
+            let correctCount = 0;
+            const totalQuestions = questionDataArray.length;
+            
+            // Check each answer and mark correct/incorrect
+            questionDataArray.forEach((qData, qIndex) => {
+                const userAnswer = userSelections[qIndex];
+                const questionItem = document.querySelector(`.question-item[data-q-index="${qIndex}"]`);
+                
+                if (questionItem && qData.correctIndex !== undefined && qData.correctIndex >= 0) {
+                    // Reveal and mark correct answer
+                    const correctOption = questionItem.querySelector(`.option-item[data-opt-index="${qData.correctIndex}"]`);
+                    if (correctOption) {
+                        correctOption.classList.remove('hidden');
+                        correctOption.classList.add('correct');
+                    }
+                    
+                    // Mark user's answer
+                    if (userAnswer !== undefined) {
+                        const userOption = questionItem.querySelector(`.option-item[data-opt-index="${userAnswer}"]`);
+                        if (userOption) {
+                            // Remove selected class to show final state
+                            userOption.classList.remove('selected');
+                            
+                            if (userAnswer === qData.correctIndex) {
+                                correctCount++;
+                                // User selected correct answer - it will be shown as correct (already has correct class)
+                            } else {
+                                // User selected wrong answer - mark as incorrect
+                                userOption.classList.add('incorrect');
+                            }
+                        }
+                    } else {
+                        // User didn't answer this question
+                        // Still show correct answer (already revealed above)
+                    }
                 }
             });
+            
+            // Hide submit button
+            const submitButton = document.getElementById('submit-quiz');
+            if (submitButton) {
+                submitButton.classList.remove('show');
+            }
+            
+            // Show results
+            showResults(correctCount, totalQuestions);
+        }
+
+        // Show quiz results
+        function showResults(correctCount, totalQuestions) {
+            const percentage = Math.round((correctCount / totalQuestions) * 100);
+            let message = '';
+            
+            if (percentage === 100) {
+                message = 'Perfect! 🎉';
+            } else if (percentage >= 80) {
+                message = 'Great job! 👍';
+            } else if (percentage >= 60) {
+                message = 'Good effort! 💪';
+            } else {
+                message = 'Keep practicing! 📚';
+            }
+            
+            const resultHTML = `
+                <div class="result-section show">
+                    <div class="result-title">Quiz Complete!</div>
+                    <div class="result-score">${correctCount}/${totalQuestions}</div>
+                    <div class="result-percentage">${percentage}%</div>
+                    <div class="result-message">${message}</div>
+                </div>
+            `;
+            
+            const container = document.getElementById('quiz-container');
+            container.insertAdjacentHTML('beforeend', resultHTML);
+        }
+
+        // Render demo quiz with sample data
+        function renderDemoQuiz(quizData, container) {
+            // Reset state
+            userSelections = {};
+            quizCompleted = false;
+            questionDataArray = [];
+            
+            let html = '';
+            
+            // Add title
+            if (quizData.title) {
+                html += `<h1 class="quiz-title">${quizData.title}</h1>`;
+            }
+            
+            // Add description
+            if (quizData.description) {
+                html += `<div class="quiz-description">${quizData.description}</div>`;
+            }
+            
+            // Render questions
+            if (quizData.questionData && quizData.questionData.length > 0) {
+                html += '<div class="multiple-questions">';
+                quizData.questionData.forEach((qData, index) => {
+                    const questionText = qData.question;
+                    const options = qData.options;
+                    const answer = qData.answer;
+                    
+                    // Determine correct answer index
+                    let correctIndex = -1;
+                    const answerTextMatch = options.findIndex(opt => opt.toLowerCase() === answer.toLowerCase());
+                    if (answerTextMatch !== -1) {
+                        correctIndex = answerTextMatch;
+                    } else {
+                        const answerNum = parseInt(answer);
+                        if (!isNaN(answerNum) && answerNum >= 1 && answerNum <= options.length) {
+                            correctIndex = answerNum - 1;
+                        }
+                    }
+                    
+                    // Store question data for checking answers
+                    questionDataArray.push({
+                        correctIndex: correctIndex,
+                        answer: answer
+                    });
+                    
+                    html += `
+                        <div class="question-item" data-q-index="${index}">
+                            <div class="question">
+                                <div class="question-label">Question ${index + 1}</div>
+                                <div class="question-text">${questionText}</div>
+                                ${options.length > 0 ? `
+                                    <ul class="options-list">
+                                        ${options.map((option, optIndex) => {
+                                            const isCorrect = optIndex === correctIndex;
+                                            return `
+                                                <li class="option-item ${isCorrect ? 'correct hidden' : ''}" data-opt-index="${optIndex}" data-correct="${isCorrect}" onclick="selectOption(${index}, ${optIndex})" id="q${index + 1}_opt${optIndex + 1}">
+                                                    <span class="option-label">${String.fromCharCode(65 + optIndex)}</span>
+                                                    <span class="option-text">${option}</span>
+                                                </li>
+                                            `;
+                                        }).join('')}
+                                    </ul>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                // Add submit button
+                html += `
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button id="submit-quiz" class="submit-button" onclick="submitQuiz()" disabled>Submit Quiz</button>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+            // Initialize submit button state
+            if (quizData.questionData && quizData.questionData.length > 0) {
+                checkAllAnswered();
+            }
         }
 
         // Render quiz content
@@ -455,10 +726,40 @@
             }
 
             if (questions.length === 0) {
-                container.innerHTML = `
-                    <div class="no-quiz">
-                        <h2>No Quiz Found</h2>
-                        <p>Please provide quiz questions and answers via URL parameters.</p>
+                // Show demo quiz with sample data
+                const sampleQuizData = {
+                    title: "Demo Quiz",
+                    description: "Try this sample quiz to see how it works! Provide your own quiz data via URL parameters.",
+                    questionData: [
+                        {
+                            question: "What is 2+2?",
+                            options: ["3", "4", "5"],
+                            answer: "4"
+                        },
+                        {
+                            question: "What is the capital of France?",
+                            options: ["London", "Paris", "Berlin"],
+                            answer: "Paris"
+                        },
+                        {
+                            question: "What is 3*3?",
+                            options: ["6", "9", "12"],
+                            answer: "9"
+                        }
+                    ]
+                };
+                
+                // Update page title for demo
+                document.title = 'Demo Quiz - Interactive Quiz';
+                
+                // Render the demo quiz
+                renderDemoQuiz(sampleQuizData, container);
+                
+                // Add instructions below
+                const instructionsHTML = `
+                    <div class="no-quiz" style="margin-top: 40px; padding-top: 40px; border-top: 2px solid #e0e0e0;">
+                        <h2>Create Your Own Quiz</h2>
+                        <p>Provide quiz questions and answers via URL parameters to create your own interactive quiz.</p>
                         
                         <p><strong>Base64 Format (Recommended - Single JSON Parameter):</strong></p>
                         <div class="example-url">
@@ -475,15 +776,11 @@
                             ?title=Math Quiz&description=Test your math skills&question1=What is 2+2?&q1_option1=3&q1_option2=4&q1_option3=5&q1_answer=4
                         </div>
                         
-                        <p><strong>Legacy Format (Simple Q&A):</strong></p>
-                        <div class="example-url">
-                            ?question=What is 2+2?&answer=4
-                        </div>
-                        
                         <p><strong>Note:</strong> Base64 encoding is recommended for cleaner URLs. Use <code>btoa()</code> in JavaScript to encode, or <code>encodeURIComponent()</code> for regular encoding.</p>
                         <p><strong>Answer Format:</strong> For multiple choice, <code>q1_answer</code> can be the option text or option number (1, 2, 3, etc.).</p>
                     </div>
                 `;
+                container.insertAdjacentHTML('beforeend', instructionsHTML);
                 return;
             }
 
@@ -499,7 +796,12 @@
                 html += `<div class="quiz-description">${decodeParam(description)}</div>`;
             }
             
-            // Render questions with options (new format)
+            // Reset state
+            userSelections = {};
+            quizCompleted = false;
+            questionDataArray = [];
+            
+            // Render questions with options (new format) - Interactive Quiz
             if (questionData && questionData.length > 0) {
                 html += '<div class="multiple-questions">';
                 questionData.forEach((qData, index) => {
@@ -521,8 +823,14 @@
                         }
                     }
                     
+                    // Store question data for checking answers
+                    questionDataArray.push({
+                        correctIndex: correctIndex,
+                        answer: answer
+                    });
+                    
                     html += `
-                        <div class="question-item">
+                        <div class="question-item" data-q-index="${index}">
                             <div class="question">
                                 <div class="question-label">Question ${index + 1}</div>
                                 <div class="question-text">${questionText}</div>
@@ -531,7 +839,7 @@
                                         ${options.map((option, optIndex) => {
                                             const isCorrect = optIndex === correctIndex;
                                             return `
-                                                <li class="option-item ${isCorrect ? 'correct hidden' : ''}" id="q${index + 1}_opt${optIndex + 1}">
+                                                <li class="option-item ${isCorrect ? 'correct hidden' : ''}" data-opt-index="${optIndex}" data-correct="${isCorrect}" onclick="selectOption(${index}, ${optIndex})" id="q${index + 1}_opt${optIndex + 1}">
                                                     <span class="option-label">${String.fromCharCode(65 + optIndex)}</span>
                                                     <span class="option-text">${option}</span>
                                                 </li>
@@ -540,16 +848,17 @@
                                     </ul>
                                 ` : ''}
                             </div>
-                            ${answer ? `
-                                <div class="answer" id="answer-${index}">
-                                    <div class="answer-label">Correct Answer</div>
-                                    <div class="answer-text">${answer}</div>
-                                </div>
-                            ` : ''}
                         </div>
                     `;
                 });
                 html += '</div>';
+                
+                // Add submit button
+                html += `
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button id="submit-quiz" class="submit-button" onclick="submitQuiz()" disabled>Submit Quiz</button>
+                    </div>
+                `;
             } else {
                 // Legacy format: simple questions and answers
                 if (questions.length === 1) {
@@ -589,8 +898,9 @@
                 }
             }
 
-            // Add control buttons if there are answers
-            if (answers.length > 0) {
+            // Note: Toggle buttons are removed for interactive quiz mode
+            // Only show toggle buttons for legacy format (non-interactive)
+            if (!questionData && answers.length > 0) {
                 html += `
                     <div class="button-group">
                         <button onclick="showAllAnswers()">Show All Answers</button>
@@ -605,6 +915,29 @@
             }
 
             container.innerHTML = html;
+            
+            // Initialize submit button state
+            if (questionData && questionData.length > 0) {
+                checkAllAnswered();
+            }
+        }
+        
+        // Legacy toggle functions (for non-interactive legacy format)
+        function toggleAnswer(index) {
+            const answerElement = document.getElementById(`answer-${index}`);
+            if (answerElement) {
+                answerElement.classList.toggle('show');
+            }
+        }
+
+        function showAllAnswers() {
+            const answers = document.querySelectorAll('.answer');
+            answers.forEach(answer => answer.classList.add('show'));
+        }
+
+        function hideAllAnswers() {
+            const answers = document.querySelectorAll('.answer');
+            answers.forEach(answer => answer.classList.remove('show'));
         }
 
         // Initialize on page load

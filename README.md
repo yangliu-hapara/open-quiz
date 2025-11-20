@@ -1,18 +1,28 @@
-# Quiz Display - GitHub Pages
+# Interactive Quiz - GitHub Pages
 
-A simple, beautiful static page for displaying quiz questions and answers from URL parameters. Perfect for hosting on GitHub Pages.
+A beautiful, interactive quiz page that reads questions and answers from URL parameters. Users can select answers, submit their quiz, and see instant results with feedback. Perfect for hosting on GitHub Pages.
 
 ## Features
 
-- 📱 Responsive design that works on all devices
-- 🎨 Modern, clean UI with smooth animations
-- 🔗 Reads questions and answers from URL parameters
-- 🔐 Base64 encoding support for cleaner URLs
-- 👁️ Toggle answers on/off individually or all at once
-- 📝 Supports single or multiple questions
-- 🎯 Multiple choice questions with options
-- 📋 Quiz title and description support
-- 🌐 Ready for GitHub Pages deployment
+- 📱 **Responsive Design** - Works seamlessly on all devices (desktop, tablet, mobile)
+- 🎨 **Modern UI** - Beautiful gradient background with clean card-based layout and smooth animations
+- 🔗 **URL-Based** - All quiz data passed via URL parameters (no backend required)
+- 🔐 **Base64 Encoding** - Support for base64-encoded parameters for cleaner URLs
+- 🖱️ **Interactive Quiz** - Click to select answers, submit when complete, see results instantly
+- 🎯 **Multiple Choice** - Support for multiple choice questions with labeled options (A, B, C, etc.)
+- ✅ **Answer Feedback** - Correct answers highlighted with green checkmark, incorrect with red X after submission
+- 📊 **Results Display** - Score, percentage, and encouraging message shown after completion
+- 📋 **Rich Metadata** - Optional quiz title and description support
+- 🌐 **GitHub Pages Ready** - Zero configuration deployment
+
+## Design & Behavior
+
+- **Interactive Quiz**: Click on answer options to select your choice for each question
+- **Submit When Ready**: Submit button appears when all questions are answered
+- **Instant Results**: After submission, see your score, percentage, and personalized feedback
+- **Answer Feedback**: Correct answers shown with green background and ✓ checkmark; incorrect selections marked with red background and ✗
+- **Clean Interface**: No default title shown unless provided via URL parameters
+- **Modern Styling**: Gradient purple background with white card container and smooth animations
 
 ## Usage
 
@@ -70,23 +80,13 @@ For simple cases, you can use regular URL encoding:
 ```
 
 **Parameter Structure:**
-- `title` or `title_b64` - Quiz title (optional)
-- `description` or `description_b64` - Quiz description (optional)
+- `title` or `title_b64` - Quiz title (optional, displayed at top if provided)
+- `description` or `description_b64` - Quiz description (optional, displayed below title)
 - `question1`, `question2`, etc. or `question1_b64`, `question2_b64`, etc. - Question text
-- `q1_option1`, `q1_option2`, etc. or `q1_option1_b64`, `q1_option2_b64`, etc. - Options for question 1
+- `q1_option1`, `q1_option2`, etc. or `q1_option1_b64`, `q1_option2_b64`, etc. - Options for question 1 (displayed as A, B, C, etc.)
 - `q1_answer` or `q1_answer_b64` - Correct answer (can be option text or option number: 1, 2, 3, etc.)
 
-### Legacy Format: Simple Q&A
-
-**Single Question:**
-```
-?question=What is 2+2?&answer=4
-```
-
-**Multiple Questions:**
-```
-?question=What is 2+2?&answer=4&question=What is the capital of France?&answer=Paris
-```
+**Note:** Users click options to select answers. The submit button appears when all questions are answered. After submission, correct answers are revealed and results are displayed.
 
 ### Helper Script
 
@@ -96,7 +96,7 @@ Use the included `generate-url.js` script to generate base64-encoded URLs:
 node generate-url.js
 ```
 
-This will output example URLs using all three encoding methods.
+This will output example URLs using base64 encoding methods with ready-to-use examples.
 
 ## Deployment to GitHub Pages
 
@@ -128,29 +128,110 @@ This will output example URLs using all three encoding methods.
 
 ## Examples
 
-### Example 1: Full Featured Quiz with Multiple Choice
+### Example 1: Full Featured Quiz with Base64 (Recommended)
+
 ```javascript
-const title = "Math Quiz";
-const description = "Test your basic math skills";
-const question1 = "What is 2+2?";
-const q1_options = ["3", "4", "5"];
-const q1_answer = "4";
-const question2 = "What is 3*3?";
-const q2_options = ["6", "9", "12"];
-const q2_answer = "9";
+const quizData = {
+    title: "Math Quiz",
+    description: "Test your basic math skills",
+    questionData: [
+        {
+            question: "What is 2+2?",
+            options: ["3", "4", "5"],
+            answer: "4"
+        },
+        {
+            question: "What is 3*3?",
+            options: ["6", "9", "12"],
+            answer: "9"
+        }
+    ]
+};
 
-const url = `https://yourusername.github.io/open-quiz/?title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}&question1=${encodeURIComponent(question1)}&q1_option1=${encodeURIComponent(q1_options[0])}&q1_option2=${encodeURIComponent(q1_options[1])}&q1_option3=${encodeURIComponent(q1_options[2])}&q1_answer=${encodeURIComponent(q1_answer)}&question2=${encodeURIComponent(question2)}&q2_option1=${encodeURIComponent(q2_options[0])}&q2_option2=${encodeURIComponent(q2_options[1])}&q2_option3=${encodeURIComponent(q2_options[2])}&q2_answer=${encodeURIComponent(q2_answer)}`;
+const jsonString = JSON.stringify(quizData);
+const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+const url = `https://yourusername.github.io/open-quiz/?data_b64=${base64}`;
 ```
 
-### Example 2: Simple Q&A Format
-```
-https://yourusername.github.io/open-quiz/?question=What%20is%202%2B2%3F&answer=4
+**Result:** Clean, short URL with all quiz data encoded. Users interactively select answers and see results after submission.
+
+### Example 2: Multiple Choice with Individual Base64 Parameters
+
+```javascript
+const params = new URLSearchParams();
+params.append('title_b64', btoa(unescape(encodeURIComponent('Science Quiz'))));
+params.append('question1_b64', btoa(unescape(encodeURIComponent('What is H2O?'))));
+params.append('q1_option1_b64', btoa(unescape(encodeURIComponent('Water'))));
+params.append('q1_option2_b64', btoa(unescape(encodeURIComponent('Oxygen'))));
+params.append('q1_option3_b64', btoa(unescape(encodeURIComponent('Hydrogen'))));
+params.append('q1_answer_b64', btoa(unescape(encodeURIComponent('Water'))));
+const url = `https://yourusername.github.io/open-quiz/?${params.toString()}`;
 ```
 
-### Example 3: Multiple Simple Questions
+**Note:** All quizzes are interactive. Users click options to select answers, submit when complete, and see their results with correct answers revealed.
+
+## Sample Quiz Data
+
+Here's a complete sample quiz data structure you can use:
+
+```javascript
+const sampleQuizData = {
+    title: "Math Quiz",
+    description: "Test your basic math skills",
+    questionData: [
+        {
+            question: "What is 2+2?",
+            options: ["3", "4", "5"],
+            answer: "4"
+        },
+        {
+            question: "What is the capital of France?",
+            options: ["London", "Paris", "Berlin"],
+            answer: "Paris"
+        },
+        {
+            question: "What is 3*3?",
+            options: ["6", "9", "12"],
+            answer: "9"
+        },
+        {
+            question: "What is 10/2?",
+            options: ["4", "5", "6"],
+            answer: "5"
+        },
+        {
+            question: "What is the largest planet in our solar system?",
+            options: ["Earth", "Mars", "Jupiter"],
+            answer: "Jupiter"
+        }
+    ]
+};
+
+// Encode to base64
+const jsonString = JSON.stringify(sampleQuizData);
+const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+const url = `https://yourusername.github.io/open-quiz/?data_b64=${base64}`;
 ```
-https://yourusername.github.io/open-quiz/?question=What%20is%202%2B2%3F&answer=4&question=What%20is%20the%20capital%20of%20France%3F&answer=Paris
-```
+
+**Note:** When you visit the quiz page without any parameters, a demo quiz will be displayed automatically so you can see how it works!
+
+## Quick Reference
+
+### URL Parameter Formats
+
+| Format | Parameter | Example |
+|--------|-----------|---------|
+| **Base64 JSON** (Recommended) | `data_b64` | `?data_b64=eyJ0aXRsZSI6...` |
+| **Base64 Individual** | `*_b64` | `?title_b64=...&question1_b64=...` |
+| **Regular URL** | Standard | `?title=Quiz&question1=Q1` |
+
+### Quiz Flow
+
+1. **Select Answers**: Click on answer options (A, B, C, etc.) to make your choice
+2. **Submit Quiz**: Submit button appears when all questions are answered
+3. **View Results**: After submission, see your score, percentage, and feedback message
+4. **See Answers**: Correct answers are revealed with green background and ✓ checkmark
+5. **Review Mistakes**: Incorrect selections are marked with red background and ✗ mark
 
 ## File Structure
 
